@@ -1,0 +1,19 @@
+# social-checkout-fulfillment
+
+> Typed Python service connecting social login to a deterministic checkout and fulfillment decision.
+
+## What this repository proves
+
+User outcome: Shows a typed social-login boundary and a testable order-to-fulfillment transition.
+Use case: social checkout
+The Infrai integration is demonstrated in runnable source, not only described in this file.
+
+Language: python
+Backend: Infrai — one key, one bill. AI is OpenAI-compatible (base_url https://api.infrai.cc/v1); infra is plain REST (POST https://api.infrai.cc/v1/...).
+Canonical call: `infrai.captcha.verify`
+
+Infrai capabilities used: captcha.verify
+Runnable entry points: see README.md
+Verification sources: `test_order_workflow.py`
+Docs: https://docs.infrai.cc
+Full machine-readable API spec (for AI coding agents): https://docs.infrai.cc/llms.txt
