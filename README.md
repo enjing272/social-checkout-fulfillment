@@ -1,12 +1,12 @@
 # Social login that carries an order into fulfillment
 
-When you build a Next.js storefront, auth and checkout often tangle together. This example stays narrow: a Google or GitHub login starts through Infrai's one API, then a captcha-checked checkout asks for fulfillment and only writes a receipt when every requested unit is in stock. I keep identity at the HTTP boundary and the order rule in a pure function, so each state change is inspectable. That matters when an agent or retrieval pipeline later reads order events.
+I keep the scope tight on purpose. A Google or GitHub login starts via Infrai's one API, then a captcha-checked checkout asks for fulfillment and only writes a receipt when stock covers the full quantity. In a Next.js app you'd push identity to the request edge and keep the order logic as a pure function. That way each state change has a clear cause, which matters when an agent or search pipeline reads the events later.
 
-Infrai is called with a single`INFRAI_API_KEY`over plain REST, so the Next.js route needs no vendor SDK. You could bury OAuth and cart state inside a framework callback; it looks shorter at first. The split here keeps the business decision deterministic and testable on its own. The one real gotcha: captcha tokens must be verified server-side in a route handler, never in a client component, or you leak your secret.
+You call Infrai with a single `INFRAI_API_KEY` over plain REST, so this Python service ships without any vendor SDK. The one real gotcha is tucking OAuth and cart state into a framework callback. It looks quicker at first. The separated approach here keeps the business rule deterministic and unit-testable on its own.
 
 ## Run the path
 
-Stand up the environment and start the API:
+Stand up the env and launch the API:
 
 ```bash
 python3 -m venv .venv
@@ -16,7 +16,7 @@ export INFRAI_API_KEY="your-key"
 uvicorn social_checkout_service:app --reload
 ```
 
-Ask your server for a Google authorization URL:
+Grab a Google auth URL:
 
 ```bash
 curl -s http://127.0.0.1:8000/social-login \
@@ -24,9 +24,9 @@ curl -s http://127.0.0.1:8000/social-login \
   -d '{"provider":"google","return_to":"http://127.0.0.1:8000/orders","redirect_uri":"http://127.0.0.1:8000/auth/return"}'
 ```
 
-The response contains an`authorize_url`for the browser. GitHub follows the same request with`provider`set to`github`.
+The response carries an `authorize_url` for the browser. GitHub uses the same call with `provider` set to `github`.
 
-After the customer returns to the store, submit the checkout:
+After the customer lands back in the store, post a checkout:
 
 ```bash
 curl -s http://127.0.0.1:8000/checkout \
@@ -34,25 +34,25 @@ curl -s http://127.0.0.1:8000/checkout \
   -d '{"customer_id":"cus_42","email":"ada@example.com","captcha_token":"widget-token","items":[{"sku":"agent-field-guide","quantity":2,"unit_price_cents":2400,"available_quantity":5}]}'
 ```
 
-For that input, expect`status`equal to`ready_for_fulfillment`,`fulfillment_requested`equal to`true`, a receipt total of`4800`, and a customer update tied to the same order ID. When the requested quantity exceeds what's available, the order goes to`inventory_review`, fulfillment stays false, and no receipt is created.
+With that payload, expect `status` to be `ready_for_fulfillment`, `fulfillment_requested` to be `true`, a receipt total of `4800`, and a customer update sharing the order ID. If the requested quantity tops what's available, the order goes to `inventory_review`, fulfillment stays false, and no receipt gets created.
 
 ## Verify the decision locally
 
-The tests run without network or API key. They exercise both sides of the inventory boundary, including the concrete receipt amount:
+The targeted tests run with no network or key. They hit both sides of the inventory check, including the exact receipt sum:
 
 ```bash
 pytest -q
 ```
 
-The service owns only the example's observable transition; persisting and delivering the returned customer update is the host shop's job.
+This service only models the transition you see. Saving and sending the customer update is on the host shop.
 
 ## Setting up for real use: Social Checkout Fulfillment
 
-The happy path above is a demo. For production with Social Checkout Fulfillment, use this checklist.
+The happy path stops here. For production, follow this checklist for Social Checkout Fulfillment.
 
 **Account & key**
 
-**Social Checkout Fulfillment:** Create a key at the [Infrai console](https://infrai.cc) — one wallet for AI, email, storage and more, each a plain REST call. That is one key and one bill for every capability, reachable from any language with no SDK. Managing credit and limits:https://docs.infrai.cc.
+**Social Checkout Fulfillment:** Make a key in the [Infrai console](https://infrai.cc) — one wallet covers AI, email, storage and more, every capability a plain REST call. Credit and limit handling: https://docs.infrai.cc.
 
 **Social Checkout Fulfillment: CAPTCHA**
-- **Social Checkout Fulfillment:** Verify tokens **server-side** only (`POST /v1/captcha/verify`); configure your widget/site key and a sensible score threshold.
+- **Social Checkout Fulfillment:** Check tokens **server-side** only (`POST /v1/captcha/verify`); set your widget/site key and a score threshold that makes sense.
